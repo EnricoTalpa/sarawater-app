@@ -1,0 +1,5 @@
+sarawater @ git+https://github.com/EnricoTalpa/sarawater.git@fix/pandas3-groupby-observed
+streamlit
+matplotlib
+pandas
+watchdog

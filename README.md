@@ -4,81 +4,88 @@ App web interattiva per l'analisi di scenari di astrazione idrica su tratti fluv
 
 ## Requisiti
 
-- Python ≥ 3.11
-- macOS (testato su 3.14.3); compatibile con qualsiasi OS con Python e accesso di rete
+- Python ≥ 3.11 (in uso: 3.14.6 da Homebrew, `/opt/homebrew/opt/python@3.14`)
+- macOS su Apple Silicon; compatibile con qualsiasi OS con Python e accesso di rete
 - Connessione internet per l'installazione (sarawater si installa da GitHub)
 - `git` installato (richiesto da pip per installare sarawater dal fork)
+- Mount NFS `/Volumes/PyLab` attivo (gestito dal LaunchDaemon `com.enrico.nfs-pylab`)
 
 ## Struttura del progetto
 
+Il codice risiede su NFS, il virtual environment è **sempre locale** (convenzione PyLab):
+
 ```
-SaraWater Astrazione idrica/
+/Volumes/PyLab/projects/SaraWater Astrazione idrica/
 ├── app.py                # App Streamlit principale
 ├── requirements.txt      # Dipendenze pip
-├── start.sh              # Script di avvio (workaround permessi SMB)
+├── start.sh              # Script di avvio (verifica mount NFS + venv)
 ├── README.md             # Questa documentazione
 ├── SESSION_SUMMARY.md    # Riepilogo tecnico della sessione di installazione
-├── .gitignore
-└── venv/                 # Virtual environment (non versionato)
+└── .gitignore
+
+~/PyLab-venvs/sarawater/  # Virtual environment (locale, fuori da NFS)
 ```
 
 ## Installazione
 
 ```bash
-# 1. Clona il repository
-git clone https://github.com/EnricoTalpa/sarawater-app.git
-cd sarawater-app
+# 1. Installa Python 3.14 (se non presente)
+brew install python@3.14
 
-# 2. Crea il virtual environment
-python3 -m venv venv
+# 2. Crea il virtual environment LOCALE (mai su NFS)
+/opt/homebrew/opt/python@3.14/bin/python3.14 -m venv ~/PyLab-venvs/sarawater
 
 # 3. Installa le dipendenze
-#    Su macOS standard:
-venv/bin/pip install -r requirements.txt
-
-#    Su volumi SMB (NAS/server) — usare python3 -m pip:
-venv/bin/python3 -m pip install -r requirements.txt
+~/PyLab-venvs/sarawater/bin/python3 -m pip install --upgrade pip
+~/PyLab-venvs/sarawater/bin/python3 -m pip install \
+  -r "/Volumes/PyLab/projects/SaraWater Astrazione idrica/requirements.txt"
 ```
 
-> **Nota su SMB:** i volumi SMB non preservano i bit di esecuzione degli script.
-> Usare sempre `venv/bin/python3 -m <modulo>` al posto degli eseguibili diretti (`pip`, `streamlit`).
+> **Nota sui volumi di rete:** i mount NFS/SMB non preservano in modo affidabile i bit di
+> esecuzione degli script. Il venv è per questo tenuto in locale in `~/PyLab-venvs/`; usare
+> comunque `python3 -m <modulo>` al posto degli eseguibili diretti (`pip`, `streamlit`).
 
 ## Avvio
 
 ### Metodo 1 — script (raccomandato)
 
 ```bash
-bash start.sh
+bash "/Volumes/PyLab/projects/SaraWater Astrazione idrica/start.sh"
 ```
 
-Lo script rileva automaticamente la propria directory e usa il Python del venv con `python3 -m streamlit`, compatibile sia con path locali sia con mount SMB.
+Lo script verifica che il mount NFS e il venv siano presenti, poi lancia l'app con il Python
+del venv tramite `python3 -m streamlit`.
 
 ### Metodo 2 — comando diretto
 
 ```bash
-venv/bin/python3 -m streamlit run app.py
+cd "/Volumes/PyLab/projects/SaraWater Astrazione idrica"
+~/PyLab-venvs/sarawater/bin/python3 -m streamlit run app.py
 ```
 
 ### Metodo 3 — con porta personalizzata
 
 ```bash
-venv/bin/python3 -m streamlit run app.py --server.port 8502
+~/PyLab-venvs/sarawater/bin/python3 -m streamlit run app.py --server.port 8502
 ```
 
 ## Configurazione del deployment attuale
 
 | Parametro | Valore |
 |-----------|--------|
-| Host macchina | MacBook Pro — IP `192.168.88.33` |
-| Percorso progetto | `/Volumes/Storage/Script Project/SaraWater Astrazione idrica/` |
-| Mount NAS | `smb://192.168.88.201/Storage` |
+| Host macchina | MacBook Pro — IP `192.168.88.230` |
+| Percorso progetto | `/Volumes/PyLab/projects/SaraWater Astrazione idrica/` |
+| Mount progetti | NFS `/Volumes/PyLab` (LaunchDaemon `com.enrico.nfs-pylab`) |
+| Percorso venv | `~/PyLab-venvs/sarawater/` (locale) |
 | URL locale | http://localhost:8501 |
-| URL rete LAN | http://192.168.88.33:8501 |
-| Python | 3.14.3 |
+| URL rete LAN | http://192.168.88.230:8501 |
+| Python | 3.14.6 (Homebrew, `/opt/homebrew/opt/python@3.14`) |
 | Porta Streamlit | 8501 (default) |
-| Processo verificato | PID 15158 — HTTP 200 su `/` e `/healthz` |
 
-L'app è accessibile da qualsiasi device sulla rete locale (telefono, tablet, altri computer) puntando a **http://192.168.88.33:8501**.
+L'app è accessibile da qualsiasi device sulla rete locale (telefono, tablet, altri computer) puntando a **http://192.168.88.230:8501**.
+
+> **Nota:** l'IP LAN è assegnato via DHCP e può cambiare. Verificarlo con `ipconfig getifaddr en0`
+> oppure leggendo la *Network URL* stampata da Streamlit all'avvio.
 
 ## Dipendenze (`requirements.txt`)
 
@@ -87,7 +94,7 @@ L'app è accessibile da qualsiasi device sulla rete locale (telefono, tablet, al
 | `sarawater` | 2.0.0 + patch | Fork `EnricoTalpa/sarawater`, branch `fix/pandas3-groupby-observed` |
 | `streamlit` | ultima stabile | Framework web UI |
 | `matplotlib` | ultima stabile | Grafici |
-| `pandas` | 3.0.3 | Elaborazione dati |
+| `pandas` | 3.0.5 | Elaborazione dati |
 | `watchdog` | 6.0.0 | Hot-reload nativo macOS via FSEvents |
 
 > **Nota su sarawater:** la versione su PyPI (2.0.0) contiene un bug con pandas ≥ 2.0.
@@ -97,7 +104,7 @@ L'app è accessibile da qualsiasi device sulla rete locale (telefono, tablet, al
 > # In requirements.txt, sostituire la riga sarawater con:
 > sarawater>=2.0.1
 > # Poi reinstallare:
-> venv/bin/python3 -m pip install --upgrade sarawater
+> ~/PyLab-venvs/sarawater/bin/python3 -m pip install --upgrade sarawater
 > ```
 
 ## Funzionalità
@@ -121,10 +128,15 @@ L'app è accessibile da qualsiasi device sulla rete locale (telefono, tablet, al
 
 ```bash
 # Aggiornare tutte le dipendenze
-venv/bin/python3 -m pip install --upgrade -r requirements.txt
+~/PyLab-venvs/sarawater/bin/python3 -m pip install --upgrade \
+  -r "/Volumes/PyLab/projects/SaraWater Astrazione idrica/requirements.txt"
 
 # Aggiornare solo streamlit
-venv/bin/python3 -m pip install --upgrade streamlit
+~/PyLab-venvs/sarawater/bin/python3 -m pip install --upgrade streamlit
+
+# Ricreare il venv da zero
+rm -rf ~/PyLab-venvs/sarawater
+/opt/homebrew/opt/python@3.14/bin/python3.14 -m venv ~/PyLab-venvs/sarawater
 
 # Verificare che l'app risponda
 curl -s -o /dev/null -w "%{http_code}" http://localhost:8501/healthz

@@ -89,13 +89,19 @@ L'app è accessibile da qualsiasi device sulla rete locale (telefono, tablet, al
 
 ## Dipendenze (`requirements.txt`)
 
+Versioni verificate nell'ultimo smoke test (`pip list` del venv):
+
 | Pacchetto | Versione | Note |
 |-----------|----------|------|
 | `sarawater` | 2.0.0 + patch | Fork `EnricoTalpa/sarawater`, branch `fix/pandas3-groupby-observed` |
-| `streamlit` | ultima stabile | Framework web UI |
-| `matplotlib` | ultima stabile | Grafici |
+| `streamlit` | 1.60.0 | Framework web UI |
+| `matplotlib` | 3.11.1 | Grafici |
 | `pandas` | 3.0.5 | Elaborazione dati |
+| `numpy` | 2.5.1 | Generazione serie sintetiche (dipendenza indiretta) |
 | `watchdog` | 6.0.0 | Hot-reload nativo macOS via FSEvents |
+
+`requirements.txt` non fissa le versioni (tranne il fork di sarawater): i numeri sopra sono
+quelli risolti al momento dell'installazione, non vincoli.
 
 > **Nota su sarawater:** la versione su PyPI (2.0.0) contiene un bug con pandas ≥ 2.0.
 > Il `requirements.txt` punta al fork fixato. Quando la PR [#18](https://github.com/sara-acqua/sarawater/pull/18)
@@ -142,6 +148,66 @@ rm -rf ~/PyLab-venvs/sarawater
 curl -s -o /dev/null -w "%{http_code}" http://localhost:8501/healthz
 # Atteso: 200
 ```
+
+## Test e verifica
+
+### Smoke test headless
+
+Un `curl` su `/healthz` verifica solo che il server sia in ascolto: non esegue le tab né i
+grafici. Per un controllo reale si usa `streamlit.testing.v1.AppTest`, che esegue `app.py`
+senza browser e permette di iniettare scenari in `session_state`.
+
+Salvare come `smoke_test.py` nella cartella del progetto ed eseguire con
+`~/PyLab-venvs/sarawater/bin/python3 smoke_test.py`:
+
+```python
+import os
+from streamlit.testing.v1 import AppTest
+
+APP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.py")
+
+SCENARIOS = [
+    {"name": "Costante test", "description": "", "type": "Costante (ConstScenario)",
+     "qreq_months": [5.0] * 12},
+    {"name": "Proporzionale test", "description": "", "type": "Proporzionale (PropScenario)",
+     "qbase": 3.0, "c_qin": 0.2, "qreq_min": 2.0, "qreq_max": 15.0},
+]
+
+at = AppTest.from_file(APP_PATH, default_timeout=120)
+at.session_state["scenarios"] = SCENARIOS
+at.run()
+
+assert not at.exception, at.exception
+assert len(at.dataframe) >= 4          # 4 tabelle su tutte le tab
+assert all(not df.value.empty for df in at.dataframe)
+assert len(at.dataframe[0].value) == 3  # Qnat + 2 scenari
+print("smoke test OK")
+```
+
+Eseguire lo smoke test dopo ogni aggiornamento di `streamlit`, `pandas` o `sarawater`.
+
+### Ultimo esito (2026-07-31)
+
+7/7 controlli superati con Python 3.14.6, Streamlit 1.60.0, pandas 3.0.5, sarawater 2.0.0+patch:
+
+- avvio a freddo senza scenari — nessuna eccezione
+- run con `ConstScenario` + `PropScenario` — nessuna eccezione
+- tutte e 4 le `st.dataframe` renderizzate e non vuote
+- tabella statistiche con le 3 serie attese (Qnat + 2 scenari)
+- pulsante di download CSV presente
+- server live: HTTP 200 su `/` e `/healthz`
+
+> **Warning atteso:** `The first and third quartile for zero_flow_days ... are equal`.
+> La serie sintetica ha un floor a 0.1 m³/s e non produce mai giorni di secca, quindi il
+> parametro IARI relativo alle magre estreme viene azzerato. Non è un errore, ma è un limite
+> da tenere presente nell'interpretazione dell'indice con dati sintetici.
+
+### Compatibilità Streamlit
+
+Le chiamate `st.dataframe()` usano `width="stretch"`. Il parametro precedente
+`use_container_width=True` è deprecato e previsto in rimozione dopo il 2025-12-31: è stato
+sostituito in tutte e 4 le occorrenze (commit `018b489`) per evitare rotture ai prossimi
+aggiornamenti di Streamlit.
 
 ## Repository
 

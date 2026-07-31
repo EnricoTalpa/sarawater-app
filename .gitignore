@@ -4,3 +4,6 @@ __pycache__/
 *.pyo
 .DS_Store
 *.csv
+
+# File AppleDouble creati su volumi di rete (NFS/SMB)
+._*

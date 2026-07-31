@@ -166,7 +166,7 @@ with tab1:
         "Min (m³/s)": [np.min(reach.Qnat)] + [np.min(s.Qrel) for s in built_scenarios],
         "Max (m³/s)": [np.max(reach.Qnat)] + [np.max(s.Qrel) for s in built_scenarios],
     }
-    st.dataframe(pd.DataFrame(stats).set_index("Serie").round(2), use_container_width=True)
+    st.dataframe(pd.DataFrame(stats).set_index("Serie").round(2), width="stretch")
 
 # ── Tab 2: Scenari ─────────────────────────────────────────────────────────────
 with tab2:
@@ -176,7 +176,7 @@ with tab2:
         st.subheader("Riepilogo scenari")
         summary_df = reach.export_scenarios_summary()
         core_cols = [c for c in summary_df.columns if not c.startswith("monthly_abs")]
-        st.dataframe(summary_df[core_cols], use_container_width=True)
+        st.dataframe(summary_df[core_cols], width="stretch")
 
         st.subheader("Volumi mensili astratti medi (m³)")
         month_data = {}
@@ -215,7 +215,7 @@ with tab3:
 
         if iari_rows:
             iari_df = pd.DataFrame(iari_rows).set_index("Scenario")
-            st.dataframe(iari_df, use_container_width=True)
+            st.dataframe(iari_df, width="stretch")
 
             # Bar chart
             fig3, ax3 = plt.subplots(figsize=(8, 4))
@@ -245,4 +245,4 @@ with tab4:
             file_name="sarawater_summary.csv",
             mime="text/csv",
         )
-        st.dataframe(summary_df, use_container_width=True)
+        st.dataframe(summary_df, width="stretch")
